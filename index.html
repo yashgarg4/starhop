@@ -110,18 +110,24 @@
 
           this.screenWidth = app.screen.width;
           this.screenHeight = app.screen.height;
-          // 🎯 RESPONSIVE PHYSICS (FIX MOBILE FAST JUMP)
-          const screenFactor = Math.min(1, this.screenHeight / 800);
+          // 🎯 SCREEN-NORMALIZED PHYSICS (FINAL FIX)
 
-          // gravity scales with screen size
-          this.gravity = 0.35 * screenFactor;
+          // Reference height where physics feels perfect (desktop)
+          const REF_HEIGHT = 800;
 
-          // jump force scales but is clamped (prevents rocket jumps)
-          this.jumpForce = Math.max(-11 * screenFactor, -8.5);
+          // >1 on mobile, =1 on desktop
+          const physicsScale = REF_HEIGHT / this.screenHeight;
 
-          // this.gravity = 0.35;
-          // this.jumpForce = -11;
-          this.moveSpeed = 6.5;
+          // Clamp to avoid extremes
+          const scale = Math.min(1.4, Math.max(1, physicsScale));
+
+          // Vertical physics
+          this.gravity = 0.35 * scale;
+          this.jumpForce = -11 * scale;
+
+          // Horizontal speed (inverse scaling)
+          this.moveSpeed = 6.5 / scale;
+
           this.fixedPlatformGap = 160;
 
           this.app.stage.addChild(this.starLayers);
