@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>StarHop: Cosmic Ascent</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background: #050608;
+        font-family: "Segoe UI", sans-serif;
+        color: white;
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        overflow: hidden;
+      }
+      #space-bg {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: -1;
+        background: radial-gradient(circle at center, #1b2735 0%, #050608 100%);
+      }
+      .nebula {
+        position: absolute;
+        width: 600px;
+        height: 600px;
+        border-radius: 50%;
+        filter: blur(80px);
+        opacity: 0.15;
+        animation: drift 30s ease-in-out infinite alternate;
+      }
+      .purple {
+        background: #6b2cf5;
+        top: -100px;
+        left: -100px;
+      }
+      .teal {
+        background: #00ffff;
+        bottom: -100px;
+        right: -100px;
+        animation-delay: -5s;
+      }
+      @keyframes drift {
+        from {
+          transform: translate(0, 0) scale(1);
+        }
+        to {
+          transform: translate(100px, 50px) scale(1.1);
+        }
+      }
+      #gameContainer {
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="space-bg">
+      <div class="nebula purple"></div>
+      <div class="nebula teal"></div>
+    </div>
+    <div id="gameContainer"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.4.3/pixi.min.js"></script>
+    <script type="module">
+      const __ASSET_MAP__ = {
+        player: {
+          url: "player.png",
+          width: 500,
+          height: 750,
+        },
+        platform: {
+          url: "Platform3.png",
+          width: 598,
+          height: 124,
+        },
+        enemy: {
+          url: "Enemy3.png",
+          width: 378,
+          height: 411,
+        },
+        star: {
+          url: "https://storage.googleapis.com/scraper_ludo/user_images_prod/1be4662fe4e186482b90a1725c75e505.png",
+          width: 349,
+          height: 341,
+        },
+      };
+
+      const keys = {};
+      window.addEventListener("keydown", (e) => (keys[e.key] = true));
+      window.addEventListener("keyup", (e) => (keys[e.key] = false));
+
+      class Game {
+        constructor(app) {
+          this.app = app;
+          this.starLayers = new PIXI.Container();
+          this.worldContainer = new PIXI.Container();
+          this.uiContainer = new PIXI.Container();
+          this.particleContainer = new PIXI.Container();
+
+          this.screenWidth = app.screen.width;
+          this.screenHeight = app.screen.height;
+
+          this.gravity = 0.35;
+          this.jumpForce = -11;
+          this.moveSpeed = 6.5;
+          this.fixedPlatformGap = 160;
+
+          this.app.stage.addChild(this.starLayers);
+          this.app.stage.addChild(this.worldContainer);
+          this.worldContainer.addChild(this.particleContainer);
+          this.app.stage.addChild(this.uiContainer);
+          this.touchButtons = { left: false, right: false };
+
+          this.setupStars();
+          this.reset();
+        }
+
+        setupStars() {
+          const createLayer = (count, size, alpha) => {
+            const canvas = document.createElement("canvas");
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext("2d");
+            ctx.fillStyle = "white";
+            for (let i = 0; i < count; i++) {
+              ctx.beginPath();
+              ctx.arc(
+                Math.random() * 512,
+                Math.random() * 512,
+                size,
+                0,
+                Math.PI * 2
+              );
+              ctx.fill();
+            }
+            const texture = PIXI.Texture.from(canvas);
+            const ts = new PIXI.TilingSprite(
+              texture,
+              this.screenWidth,
+              this.screenHeight
+            );
+            ts.alpha = alpha;
+            return ts;
+          };
+          this.s1 = createLayer(100, 1, 0.8);
+          this.s2 = createLayer(50, 1.5, 0.4);
+          this.starLayers.addChild(this.s2, this.s1);
+        }
+
+        reset() {
+          this.state = "title";
+          this.player = null;
+          this.platforms = [];
+          this.enemies = [];
+          this.stars = [];
+          this.particles = [];
+          this.score = 0;
+          this.invincible = false;
+          this.worldContainer.removeChildren();
+          this.worldContainer.addChild(this.particleContainer);
+          this.particleContainer.removeChildren();
+          this.uiContainer.removeChildren();
+          this.worldContainer.y = 0;
+          this.setupTitle();
+        }
+
+        setupTitle() {
+          const res = Math.min(72, this.screenWidth * 0.12);
+          const title = new PIXI.Text("STARHOP", {
+            fontSize: res,
+            fontWeight: "900",
+            fill: ["#ffffff", "#00ffff"],
+            stroke: "#004444",
+            strokeThickness: res * 0.1,
+            dropShadow: true,
+            dropShadowColor: "#00ffff",
+            dropShadowBlur: 15,
+            letterSpacing: res * 0.1,
+          });
+          title.anchor.set(0.5);
+          title.x = this.screenWidth / 2;
+          title.y = this.screenHeight * 0.35;
+          const btn = new PIXI.Container();
+          const bg = new PIXI.Graphics()
+            .beginFill(0x00ffff, 0.2)
+            .lineStyle(4, 0x00ffff, 1)
+            .drawRoundedRect(-140, -40, 280, 80, 40);
+          const txt = new PIXI.Text("L A U N C H", {
+            fontSize: 28,
+            fill: "#ffffff",
+            fontWeight: "bold",
+          });
+          txt.anchor.set(0.5);
+          btn.addChild(bg, txt);
+          btn.x = this.screenWidth / 2;
+          btn.y = this.screenHeight * 0.65;
+          btn.eventMode = "static";
+          btn.cursor = "pointer";
+          btn.once("pointerup", () => this.startGame());
+          this.uiContainer.addChild(title, btn);
+        }
+
+        createTouchControls() {
+          const size = Math.min(45, this.screenWidth * 0.12);
+          const margin = 50;
+          const createBtn = (dir, x, label) => {
+            const btn = new PIXI.Container();
+            const g = new PIXI.Graphics()
+              .beginFill(0x00ffff, 0.2)
+              .lineStyle(4, 0x00ffff, 0.5)
+              .drawCircle(0, 0, size)
+              .endFill();
+            const t = new PIXI.Text(label, { fontSize: size, fill: 0xffffff });
+            t.anchor.set(0.5);
+            btn.addChild(g, t);
+            btn.x = x;
+            btn.y = this.screenHeight - size - margin;
+            btn.eventMode = "static";
+            btn.on("pointerdown", () => {
+              this.touchButtons[dir] = true;
+              g.alpha = 0.5;
+            });
+            btn.on("pointerup", () => {
+              this.touchButtons[dir] = false;
+              g.alpha = 1;
+            });
+            btn.on("pointerupoutside", () => {
+              this.touchButtons[dir] = false;
+              g.alpha = 1;
+            });
+            this.uiContainer.addChild(btn);
+          };
+          createBtn("left", size + margin, "←");
+          createBtn("right", this.screenWidth - size - margin, "→");
+        }
+
+        startGame() {
+          this.uiContainer.removeChildren();
+          this.state = "playing";
+          // this.player = PIXI.Sprite.from(__ASSET_MAP__.player.url);
+          // const ratio =
+          //   __ASSET_MAP__.player.width / __ASSET_MAP__.player.height;
+          // this.player.height = 70;
+          // this.player.width = 70 * ratio;
+
+          this.player = PIXI.Sprite.from(__ASSET_MAP__.player.url);
+
+          // 🔒 anchor at feet
+          this.player.anchor.set(0.5, 1);
+
+          // 🎯 SAFE SCALE BASED ON SCREEN (never off-screen)
+          const baseScale = Math.min(
+            this.screenWidth / 1200,
+            this.screenHeight / 900
+          );
+
+          // this.player.anchor.set(0.5, 1);
+          // final player size (tuned for your game)
+          this.player.scale.set(baseScale * 0.22);
+          // position
+          this.player.x = this.screenWidth / 2;
+          this.player.y = this.screenHeight - 120;
+          // this.player.x = this.screenWidth / 2;
+          // this.player.y = this.screenHeight - 150;
+          this.player.velocity = { x: 0, y: 0 };
+          this.player.facing = 1;
+          this.player.baseScaleX = Math.abs(this.player.scale.x);
+          this.player.baseScaleY = this.player.scale.y;
+          this.player.juiceX = 1;
+          this.player.juiceY = 1;
+          this.worldContainer.addChild(this.player);
+
+          const safetyFloor = new PIXI.TilingSprite(
+            PIXI.Texture.from(__ASSET_MAP__.platform.url),
+            this.screenWidth,
+            35
+          );
+          safetyFloor.y = this.screenHeight - 50;
+          safetyFloor.isSafetyFloor = true;
+          safetyFloor.hasGivenPoint = true;
+          safetyFloor.moveSpeed = 0;
+          this.platforms.push(safetyFloor);
+          this.worldContainer.addChild(safetyFloor);
+
+          for (let i = 1; i < 10; i++)
+            this.spawnPlatform(this.screenHeight - i * this.fixedPlatformGap);
+          this.createTouchControls();
+        }
+
+        spawnPlatform(y) {
+          const baseWidth = __ASSET_MAP__.platform.width; // 598
+          const baseHeight = __ASSET_MAP__.platform.height; // 124
+
+          // 🎯 RANDOM WIDTH RELATIVE TO DEVICE
+          const minScreenRatio = 0.2; // 20% of screen
+          const maxScreenRatio = 0.45; // 35% of screen
+
+          const targetWidth =
+            this.screenWidth *
+            (minScreenRatio +
+              Math.random() * (maxScreenRatio - minScreenRatio));
+
+          // convert desired width → scale
+          const scaleX = targetWidth / baseWidth;
+          const scaleY = 0.3; // fixed height (as requested)
+
+          const plat = new PIXI.TilingSprite(
+            PIXI.Texture.from(__ASSET_MAP__.platform.url),
+            baseWidth,
+            baseHeight
+          );
+
+          // ✅ SCALE
+          plat.scale.set(scaleX, scaleY);
+
+          // ✅ COLLISION SIZE
+          plat.collisionWidth = baseWidth * scaleX;
+          plat.collisionHeight = baseHeight * scaleY;
+
+          // POSITION
+          plat.x = Math.random() * (this.screenWidth - plat.collisionWidth);
+          plat.y = y;
+
+          plat.hasGivenPoint = false;
+          // movement activates after 15 points
+          if (this.score >= 15) {
+            plat.moveSpeed =
+              (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random() * 1.5); // speed range: 1–2.5
+          } else {
+            plat.moveSpeed = 0;
+          }
+
+          this.platforms.push(plat);
+          this.worldContainer.addChild(plat);
+
+          // ===== ENEMY =====
+          if (Math.random() < 0.25) {
+            const enemy = PIXI.Sprite.from(__ASSET_MAP__.enemy.url);
+            enemy.scale.set(0.15);
+            enemy.anchor.set(0.5);
+
+            enemy.x = plat.x + plat.collisionWidth / 2;
+            enemy.y = plat.y - 10;
+
+            enemy.plat = plat;
+            enemy.dir = Math.random() < 0.5 ? -1 : 1;
+
+            this.enemies.push(enemy);
+            this.worldContainer.addChild(enemy);
+          }
+
+          // ===== STAR =====
+          if (Math.random() < 0.2) {
+            const star = PIXI.Sprite.from(__ASSET_MAP__.star.url);
+            star.scale.set(0.08);
+            star.anchor.set(0.5);
+
+            star.x = plat.x + Math.random() * plat.collisionWidth;
+            star.y = plat.y - 40;
+
+            this.stars.push(star);
+            this.worldContainer.addChild(star);
+          }
+        }
+
+        update(delta) {
+          this.s1.tilePosition.y += 0.5 * delta;
+          this.s2.tilePosition.y += 0.2 * delta;
+
+          if (this.state !== "playing" || !this.player) return;
+          // 🔓 Unlock moving platforms at score 15
+          if (this.score === 20) {
+            this.platforms.forEach((p) => {
+              if (!p.isSafetyFloor && !p.moveSpeed) {
+                p.moveSpeed =
+                  (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random() * 1.5);
+              }
+            });
+          }
+
+          // Invincibility flicker
+          if (this.invincible) {
+            this.invincibleTimer -= delta;
+            this.player.alpha = Math.sin(Date.now() * 0.2) > 0 ? 0.4 : 1;
+            if (this.invincibleTimer <= 0) {
+              this.invincible = false;
+              this.player.alpha = 1;
+            }
+          }
+
+          // Particles
+          for (let i = this.particles.length - 1; i >= 0; i--) {
+            const p = this.particles[i];
+            p.y += 2;
+            p.alpha -= 0.02;
+            if (p.alpha <= 0) {
+              this.particleContainer.removeChild(p);
+              this.particles.splice(i, 1);
+            }
+          }
+
+          // Player movement
+          this.player.velocity.x = 0;
+          if (keys["ArrowLeft"] || this.touchButtons.left) {
+            this.player.velocity.x = -this.moveSpeed;
+            this.player.facing = -1;
+          }
+          if (keys["ArrowRight"] || this.touchButtons.right) {
+            this.player.velocity.x = this.moveSpeed;
+            this.player.facing = 1;
+          }
+
+          const prevY = this.player.y;
+          this.player.velocity.y += this.gravity;
+          this.player.x += this.player.velocity.x;
+          this.player.y += this.player.velocity.y;
+
+          if (this.player.x < 0) this.player.x = 0;
+          if (this.player.x > this.screenWidth)
+            this.player.x = this.screenWidth;
+
+          // Juice (Squash/Stretch)
+          this.player.juiceX +=
+            (1 +
+              Math.abs(this.player.velocity.y) * 0.005 -
+              this.player.juiceX) *
+            0.25;
+          this.player.juiceY +=
+            (1 -
+              Math.abs(this.player.velocity.y) * 0.005 -
+              this.player.juiceY) *
+            0.25;
+          this.player.scale.x =
+            this.player.baseScaleX * this.player.juiceX * this.player.facing;
+          this.player.scale.y = this.player.baseScaleY * this.player.juiceY;
+
+          // Platforms & Enemies
+          this.platforms.forEach((p) => {
+            if (p.moveSpeed) {
+              p.x += p.moveSpeed;
+              if (
+                p.x <= 0 ||
+                p.x + (p.collisionWidth || p.width) >= this.screenWidth
+              )
+                p.moveSpeed *= -1;
+            }
+            if (
+              this.player.velocity.y > 0 &&
+              prevY <= p.y &&
+              this.player.y >= p.y
+            ) {
+              if (
+                this.player.x + 20 > p.x &&
+                this.player.x - 20 < p.x + (p.collisionWidth || p.width)
+              ) {
+                this.player.y = p.y;
+                this.player.velocity.y = this.jumpForce;
+                this.player.juiceX = 1.2;
+                this.player.juiceY = 0.8;
+                if (!p.hasGivenPoint) {
+                  this.score++;
+                  p.hasGivenPoint = true;
+                }
+                const highY = this.platforms[this.platforms.length - 1].y;
+                if (highY > this.player.y - 800)
+                  this.spawnPlatform(highY - this.fixedPlatformGap);
+              }
+            }
+          });
+
+          // Update Enemies
+          this.enemies.forEach((e) => {
+            e.x += 2 * e.dir + (e.plat.moveSpeed || 0);
+            if (
+              e.x < e.plat.x ||
+              e.x > e.plat.x + (e.plat.collisionWidth || e.plat.width)
+            )
+              e.dir *= -1;
+            // Collision with player
+            if (!this.invincible) {
+              const dx = this.player.x - e.x;
+              const dy = this.player.y - 35 - e.y;
+              if (Math.sqrt(dx * dx + dy * dy) < 35) {
+                this.score = Math.max(0, this.score - 2);
+                this.invincible = true;
+                this.invincibleTimer = 60;
+                this.player.velocity.y = -6;
+              }
+            }
+          });
+
+          // Stars
+          this.stars.forEach((s, i) => {
+            const dx = this.player.x - s.x;
+            const dy = this.player.y - 35 - s.y;
+            if (Math.sqrt(dx * dx + dy * dy) < 40) {
+              this.score += 5;
+              this.worldContainer.removeChild(s);
+              this.stars.splice(i, 1);
+              for (let j = 0; j < 10; j++) {
+                const p = new PIXI.Graphics()
+                  .beginFill(0xffff00)
+                  .drawCircle(0, 0, 3)
+                  .endFill();
+                p.x = s.x;
+                p.y = s.y;
+                p.alpha = 1;
+                this.particleContainer.addChild(p);
+                this.particles.push(p);
+              }
+            }
+          });
+
+          // Camera shift
+          const targetCam = this.player.y - this.screenHeight / 2;
+          if (targetCam < this.worldContainer.y)
+            this.worldContainer.y = -targetCam;
+          if (this.player.y > -this.worldContainer.y + this.screenHeight + 150)
+            this.reset();
+
+          this.updateUI();
+        }
+
+        updateUI() {
+          let st = this.uiContainer.getChildByName("scoreText");
+          if (!st) {
+            st = new PIXI.Text(`SCORE: 0`, {
+              fontSize: 32,
+              fill: 0xffffff,
+              fontWeight: "900",
+              stroke: "#00ffff",
+              strokeThickness: 2,
+            });
+            st.name = "scoreText";
+            st.x = 20;
+            st.y = 20;
+            this.uiContainer.addChild(st);
+          }
+          st.text = `SCORE: ${this.score}`;
+        }
+      }
+
+      const app = new PIXI.Application({
+        width: window.innerWidth,
+        height: window.innerHeight,
+        backgroundAlpha: 0,
+      });
+      document.getElementById("gameContainer").appendChild(app.view);
+      const game = new Game(app);
+      app.ticker.add((delta) => game.update(delta));
+    </script>
+  </body>
+</html>
