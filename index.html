@@ -126,7 +126,7 @@
           this.jumpForce = -11 * scale;
 
           // Horizontal speed (inverse scaling)
-          this.moveSpeed = 6.5 / scale;
+          this.moveSpeed = 4.5 / scale;
 
           this.fixedPlatformGap = 160;
 
@@ -437,8 +437,9 @@
 
           const prevY = this.player.y;
           this.player.velocity.y += this.gravity;
-          this.player.x += this.player.velocity.x;
-          this.player.y += this.player.velocity.y;
+          this.player.velocity.y *= 0.98;
+          this.player.x += this.player.velocity.x * delta;
+          this.player.y += this.player.velocity.y * delta;
 
           if (this.player.x < 0) this.player.x = 0;
           if (this.player.x > this.screenWidth)
