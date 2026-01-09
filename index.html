@@ -110,9 +110,17 @@
 
           this.screenWidth = app.screen.width;
           this.screenHeight = app.screen.height;
+          // 🎯 RESPONSIVE PHYSICS (FIX MOBILE FAST JUMP)
+          const screenFactor = Math.min(1, this.screenHeight / 800);
 
-          this.gravity = 0.35;
-          this.jumpForce = -11;
+          // gravity scales with screen size
+          this.gravity = 0.35 * screenFactor;
+
+          // jump force scales but is clamped (prevents rocket jumps)
+          this.jumpForce = Math.max(-11 * screenFactor, -8.5);
+
+          // this.gravity = 0.35;
+          // this.jumpForce = -11;
           this.moveSpeed = 6.5;
           this.fixedPlatformGap = 160;
 
