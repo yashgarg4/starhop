@@ -360,9 +360,20 @@
 
           const safetyFloor = new PIXI.TilingSprite(
             PIXI.Texture.from(__ASSET_MAP__.platform.url),
-            this.screenWidth,
-            35
+            __ASSET_MAP__.platform.width,
+            __ASSET_MAP__.platform.height
           );
+          // ✅ scale to exactly fit screen width
+          const scaleX = this.screenWidth / __ASSET_MAP__.platform.width;
+          const scaleY = 0.3; // same height scale as other platforms
+
+          safetyFloor.scale.set(scaleX, scaleY);
+
+          // ✅ explicit collision size
+          safetyFloor.collisionWidth = __ASSET_MAP__.platform.width * scaleX;
+          safetyFloor.collisionHeight = __ASSET_MAP__.platform.height * scaleY;
+
+          safetyFloor.x = 0;
           safetyFloor.y = this.screenHeight - 50;
           safetyFloor.isSafetyFloor = true;
           safetyFloor.hasGivenPoint = true;
