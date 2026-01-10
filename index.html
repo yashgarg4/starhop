@@ -189,6 +189,40 @@
           this.setupTitle();
         }
 
+        createInstructions() {
+          const panel = new PIXI.Container();
+          panel.name = "instructions";
+
+          const bg = new PIXI.Graphics()
+            .beginFill(0x000000, 0.45)
+            .lineStyle(1.5, 0x00ffff, 0.6)
+            .drawRoundedRect(-140, -60, 280, 120, 16);
+
+          const text = new PIXI.Text(
+            "← / →  Move\n" +
+              "Land on platforms to jump & score\n" +
+              "Collect ⭐ stars for bonus points\n" +
+              "Avoid enemies 👾",
+            {
+              fontSize: 15,
+              fill: 0xffffff,
+              align: "center",
+              lineHeight: 20,
+              wordWrap: true,
+              wordWrapWidth: 240,
+            }
+          );
+
+          text.anchor.set(0.5);
+
+          panel.addChild(bg, text);
+
+          panel.x = this.screenWidth / 2;
+          panel.y = this.screenHeight * 0.85;
+
+          this.uiContainer.addChild(panel);
+        }
+
         setupTitle() {
           const res = Math.min(72, this.screenWidth * 0.12);
           const title = new PIXI.Text("STARHOP", {
@@ -204,25 +238,26 @@
           });
           title.anchor.set(0.5);
           title.x = this.screenWidth / 2;
-          title.y = this.screenHeight * 0.35;
+          title.y = this.screenHeight * 0.25;
           const btn = new PIXI.Container();
           const bg = new PIXI.Graphics()
-            .beginFill(0x00ffff, 0.2)
-            .lineStyle(4, 0x00ffff, 1)
-            .drawRoundedRect(-140, -40, 280, 80, 40);
+            .beginFill(0x00ffff, 0.18)
+            .lineStyle(2.5, 0x00ffff, 1)
+            .drawRoundedRect(-95, -28, 190, 56, 28);
           const txt = new PIXI.Text("L A U N C H", {
-            fontSize: 28,
+            fontSize: 20,
             fill: "#ffffff",
             fontWeight: "bold",
           });
           txt.anchor.set(0.5);
           btn.addChild(bg, txt);
           btn.x = this.screenWidth / 2;
-          btn.y = this.screenHeight * 0.65;
+          btn.y = this.screenHeight * 0.55;
           btn.eventMode = "static";
           btn.cursor = "pointer";
           btn.once("pointerup", () => this.startGame());
           this.uiContainer.addChild(title, btn);
+          this.createInstructions();
         }
 
         createTouchControls() {
@@ -235,8 +270,14 @@
               .lineStyle(4, 0x00ffff, 0.5)
               .drawCircle(0, 0, size)
               .endFill();
-            const t = new PIXI.Text(label, { fontSize: size, fill: 0xffffff });
+            const t = new PIXI.Text(label, {
+              fontSize: size * 0.9,
+              fill: 0xffffff,
+              align: "center",
+            });
             t.anchor.set(0.5);
+            t.x = 0;
+            t.y = 0;
             btn.addChild(g, t);
             btn.x = x;
             btn.y = this.screenHeight - size - margin;
@@ -582,8 +623,9 @@
       }
 
       const app = new PIXI.Application({
-        width: window.innerWidth,
-        height: window.innerHeight,
+        resizeTo: window,
+        resolution: Math.min(window.devicePixelRatio || 1, 2),
+        autoDensity: true,
         backgroundAlpha: 0,
       });
       document.getElementById("gameContainer").appendChild(app.view);
