@@ -103,6 +103,22 @@
         star: new Audio("sounds/star.mp3"), // star collection
       };
 
+      // 🎵 Handle app background / tab change
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+          // App/tab is in background
+          if (!AUDIO.bgm.paused) {
+            AUDIO.bgm.pause();
+          }
+        } else {
+          // App/tab is active again
+          // Resume only if game is running
+          if (game?.state === "playing" && AUDIO.bgm.paused) {
+            AUDIO.bgm.play().catch(() => {});
+          }
+        }
+      });
+
       AUDIO.bgm.loop = true;
       AUDIO.bgm.volume = 0.9;
 
