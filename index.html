@@ -96,6 +96,20 @@
         },
       };
 
+      const AUDIO = {
+        bgm: new Audio("sounds/bg1.mp3"), // background music
+        jump: new Audio("sounds/jump.mp3"), // jump sound
+        hit: new Audio("sounds/enemy.mp3"), // enemy collision
+        star: new Audio("sounds/star.mp3"), // star collection
+      };
+
+      AUDIO.bgm.loop = true;
+      AUDIO.bgm.volume = 0.9;
+
+      AUDIO.jump.volume = 0.07;
+      AUDIO.hit.volume = 0.7;
+      AUDIO.star.volume = 0.6;
+
       const keys = {};
       window.addEventListener("keydown", (e) => (keys[e.key] = true));
       window.addEventListener("keyup", (e) => (keys[e.key] = false));
@@ -246,6 +260,12 @@
         }
 
         startGame() {
+          // 🎵 START BACKGROUND MUSIC (SAFE FOR MOBILE)
+          if (AUDIO.bgm.paused) {
+            AUDIO.bgm.currentTime = 0;
+            AUDIO.bgm.play().catch(() => {});
+          }
+
           this.uiContainer.removeChildren();
           this.state = "playing";
           // this.player = PIXI.Sprite.from(__ASSET_MAP__.player.url);
@@ -379,7 +399,7 @@
           this.s2.tilePosition.y += 0.2 * delta;
 
           if (this.state !== "playing" || !this.player) return;
-          // 🔓 Unlock moving platforms at score 15
+          // 🔓 Unlock moving platforms at score 20
           if (this.score === 20) {
             this.platforms.forEach((p) => {
               if (!p.isSafetyFloor && !p.moveSpeed) {
@@ -466,6 +486,9 @@
               ) {
                 this.player.y = p.y;
                 this.player.velocity.y = this.jumpForce;
+                // 🔊 jump sound
+                AUDIO.jump.currentTime = 0;
+                AUDIO.jump.play().catch(() => {});
                 this.player.juiceX = 1.2;
                 this.player.juiceY = 0.8;
                 if (!p.hasGivenPoint) {
@@ -492,6 +515,9 @@
               const dx = this.player.x - e.x;
               const dy = this.player.y - 35 - e.y;
               if (Math.sqrt(dx * dx + dy * dy) < 35) {
+                // 🔊 enemy hit sound
+                AUDIO.hit.currentTime = 0;
+                AUDIO.hit.play().catch(() => {});
                 this.score = Math.max(0, this.score - 2);
                 this.invincible = true;
                 this.invincibleTimer = 60;
@@ -505,6 +531,10 @@
             const dx = this.player.x - s.x;
             const dy = this.player.y - 35 - s.y;
             if (Math.sqrt(dx * dx + dy * dy) < 40) {
+              // 🔊 star collect sound
+              AUDIO.star.currentTime = 0;
+              AUDIO.star.play().catch(() => {});
+
               this.score += 5;
               this.worldContainer.removeChild(s);
               this.stars.splice(i, 1);
