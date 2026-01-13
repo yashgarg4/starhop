@@ -75,17 +75,17 @@
     <script type="module">
       const __ASSET_MAP__ = {
         player: {
-          url: "player.png",
+          url: "images/player.png",
           width: 500,
           height: 750,
         },
         platform: {
-          url: "Platform.png",
+          url: "images/Platform.png",
           width: 598,
           height: 124,
         },
         enemy: {
-          url: "Enemy3.png",
+          url: "images/Enemy3.png",
           width: 378,
           height: 411,
         },
@@ -316,7 +316,7 @@
           createBtn("right", this.screenWidth - size - margin, "→");
         }
 
-        startGame() {
+        playGame() {
           // 🎵 START BACKGROUND MUSIC (SAFE FOR MOBILE)
           if (AUDIO.bgm.paused) {
             AUDIO.bgm.currentTime = 0;
@@ -386,6 +386,10 @@
           this.createTouchControls();
         }
 
+        startGame() {
+          window.parent.postMessage({ type: "readyGame" }, "*");
+        }
+
         spawnPlatform(y) {
           const baseWidth = __ASSET_MAP__.platform.width; // 598
           const baseHeight = __ASSET_MAP__.platform.height; // 124
@@ -421,8 +425,8 @@
           plat.y = y;
 
           plat.hasGivenPoint = false;
-          // movement activates after 15 points
-          if (this.score >= 15) {
+          // movement activates after 20 points
+          if (this.score >= 20) {
             plat.moveSpeed =
               (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random() * 1.5); // speed range: 1–2.5
           } else {
@@ -562,6 +566,10 @@
                 if (!p.hasGivenPoint) {
                   this.score++;
                   p.hasGivenPoint = true;
+                  window.parent.postMessage(
+                    { type: "updateBattleScore", score: this.score },
+                    "*"
+                  );
                 }
                 const highY = this.platforms[this.platforms.length - 1].y;
                 if (highY > this.player.y - 800)
@@ -587,6 +595,10 @@
                 AUDIO.hit.currentTime = 0;
                 AUDIO.hit.play().catch(() => {});
                 this.score = Math.max(0, this.score - 2);
+                window.parent.postMessage(
+                  { type: "updateBattleScore", score: this.score },
+                  "*"
+                );
                 this.invincible = true;
                 this.invincibleTimer = 60;
                 this.player.velocity.y = -6;
@@ -604,6 +616,10 @@
               AUDIO.star.play().catch(() => {});
 
               this.score += 5;
+              window.parent.postMessage(
+                { type: "updateBattleScore", score: this.score },
+                "*"
+              );
               this.worldContainer.removeChild(s);
               this.stars.splice(i, 1);
               for (let j = 0; j < 10; j++) {
@@ -631,21 +647,21 @@
         }
 
         updateUI() {
-          let st = this.uiContainer.getChildByName("scoreText");
-          if (!st) {
-            st = new PIXI.Text(`SCORE: 0`, {
-              fontSize: 32,
-              fill: 0xffffff,
-              fontWeight: "900",
-              stroke: "#00ffff",
-              strokeThickness: 2,
-            });
-            st.name = "scoreText";
-            st.x = 20;
-            st.y = 20;
-            this.uiContainer.addChild(st);
-          }
-          st.text = `SCORE: ${this.score}`;
+          // let st = this.uiContainer.getChildByName("scoreText");
+          // if (!st) {
+          //   st = new PIXI.Text(`SCORE: 0`, {
+          //     fontSize: 32,
+          //     fill: 0xffffff,
+          //     fontWeight: "900",
+          //     stroke: "#00ffff",
+          //     strokeThickness: 2,
+          //   });
+          //   st.name = "scoreText";
+          //   st.x = 20;
+          //   st.y = 20;
+          //   this.uiContainer.addChild(st);
+          // }
+          // st.text = `SCORE: ${this.score}`;
         }
       }
 
@@ -658,6 +674,18 @@
       document.getElementById("gameContainer").appendChild(app.view);
       const game = new Game(app);
       app.ticker.add((delta) => game.update(delta));
+      window.addEventListener("message", function (event) {
+        if (!event.data || event.data.type !== "parent-event") return;
+
+        const command = event.data.payload?.command;
+
+        if (command === "startGame") {
+          game.playGame();
+        } else if (command === "endGame") {
+          // Reserved for future use (pause / stop / send score etc.)
+          // game.bgMusic.pause();
+        }
+      });
     </script>
   </body>
 </html>
